@@ -9,12 +9,11 @@ class CurrencyConverter:
     def __init__(self, root):
         self.root = root
         self.root.title("Currency Converter")
-        self.root.geometry("750x600")
+        self.root.geometry("800x650")
         self.root.resizable(True, True)
         
-        # API настройки
-        self.api_key = "YOUR_API_KEY_HERE"  # Замените на ваш API ключ
-        self.api_url = f"https://v6.exchangerate-api.com/v6/{self.api_key}/latest/"
+        # БЕЗ API-КЛЮЧА - используем Frankfurter API (бесплатный, без регистрации)
+        self.base_url = "https://api.frankfurter.app"
         
         # Файл истории
         self.history_file = "conversion_history.json"
@@ -22,13 +21,11 @@ class CurrencyConverter:
         
         # Доступные валюты
         self.currencies = []
-        self.exchange_rates = {}
         
         # Переменные
         self.from_currency = tk.StringVar(value="USD")
         self.to_currency = tk.StringVar(value="EUR")
         self.amount = tk.StringVar(value="1.00")
-        self.result = tk.StringVar(value="")
         
         self.setup_ui()
         self.load_currencies()
@@ -40,59 +37,70 @@ class CurrencyConverter:
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Заголовок
-        title_label = ttk.Label(main_frame, text="Конвертер валют", font=("Arial", 16, "bold"))
-        title_label.grid(row=0, column=0, columnspan=4, pady=10)
+        title_label = ttk.Label(main_frame, text="Currency Converter", font=("Arial", 18, "bold"))
+        title_label.grid(row=0, column=0, columnspan=5, pady=10)
+        
+        # Разделитель
+        ttk.Separator(main_frame, orient='horizontal').grid(row=1, column=0, columnspan=5, sticky='ew', pady=5)
         
         # Фрейм конвертации
-        convert_frame = ttk.LabelFrame(main_frame, text="Конвертация", padding="10")
-        convert_frame.grid(row=1, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=5)
+        convert_frame = ttk.LabelFrame(main_frame, text="Конвертация валют", padding="15")
+        convert_frame.grid(row=2, column=0, columnspan=5, sticky=(tk.W, tk.E), pady=10)
         
         # Поле ввода суммы
-        ttk.Label(convert_frame, text="Сумма:").grid(row=0, column=0, sticky=tk.W, padx=5)
-        amount_entry = ttk.Entry(convert_frame, textvariable=self.amount, width=15)
-        amount_entry.grid(row=0, column=1, padx=5)
+        ttk.Label(convert_frame, text="Сумма:", font=("Arial", 11)).grid(row=0, column=0, sticky=tk.W, padx=5, pady=10)
+        amount_entry = ttk.Entry(convert_frame, textvariable=self.amount, width=15, font=("Arial", 11))
+        amount_entry.grid(row=0, column=1, padx=5, pady=10)
         
         # Выбор валюты "из"
-        ttk.Label(convert_frame, text="Из валюты:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        self.from_combo = ttk.Combobox(convert_frame, textvariable=self.from_currency, width=10)
-        self.from_combo.grid(row=1, column=1, padx=5, pady=5)
+        ttk.Label(convert_frame, text="Из валюты:", font=("Arial", 11)).grid(row=1, column=0, sticky=tk.W, padx=5, pady=10)
+        self.from_combo = ttk.Combobox(convert_frame, textvariable=self.from_currency, width=12, font=("Arial", 11))
+        self.from_combo.grid(row=1, column=1, padx=5, pady=10)
         
         # Кнопка перестановки валют
-        swap_btn = ttk.Button(convert_frame, text="⇄", command=self.swap_currencies, width=3)
-        swap_btn.grid(row=1, column=2, padx=5)
+        swap_btn = ttk.Button(convert_frame, text="⇄", command=self.swap_currencies, width=5)
+        swap_btn.grid(row=1, column=2, padx=10)
         
         # Выбор валюты "в"
-        ttk.Label(convert_frame, text="В валюту:").grid(row=1, column=3, sticky=tk.W, padx=5)
-        self.to_combo = ttk.Combobox(convert_frame, textvariable=self.to_currency, width=10)
-        self.to_combo.grid(row=1, column=4, padx=5)
+        ttk.Label(convert_frame, text="В валюту:", font=("Arial", 11)).grid(row=1, column=3, sticky=tk.W, padx=5, pady=10)
+        self.to_combo = ttk.Combobox(convert_frame, textvariable=self.to_currency, width=12, font=("Arial", 11))
+        self.to_combo.grid(row=1, column=4, padx=5, pady=10)
         
         # Кнопка конвертации
-        convert_btn = ttk.Button(convert_frame, text="Конвертировать", command=self.convert_currency)
-        convert_btn.grid(row=2, column=0, columnspan=5, pady=10)
+        convert_btn = ttk.Button(convert_frame, text="Конвертировать", command=self.convert_currency, width=20)
+        convert_btn.grid(row=2, column=0, columnspan=5, pady=15)
         
-        # Результат
-        result_frame = ttk.LabelFrame(main_frame, text="Результат", padding="10")
-        result_frame.grid(row=2, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=5)
+        # Фрейм результата
+        result_frame = ttk.LabelFrame(main_frame, text="Результат", padding="15")
+        result_frame.grid(row=3, column=0, columnspan=5, sticky=(tk.W, tk.E), pady=10)
         
-        self.result_label = ttk.Label(result_frame, text="", font=("Arial", 14, "bold"))
+        self.result_label = ttk.Label(result_frame, text="", font=("Arial", 14, "bold"), foreground="green")
         self.result_label.grid(row=0, column=0, pady=5)
         
-        # Курс обмена
-        self.rate_label = ttk.Label(result_frame, text="", font=("Arial", 10))
+        self.rate_label = ttk.Label(result_frame, text="", font=("Arial", 10), foreground="blue")
         self.rate_label.grid(row=1, column=0, pady=5)
         
-        # История конвертаций
+        # Фрейм истории
         history_frame = ttk.LabelFrame(main_frame, text="История конвертаций", padding="10")
-        history_frame.grid(row=3, column=0, columnspan=4, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
+        history_frame.grid(row=4, column=0, columnspan=5, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
         
         # Таблица истории
-        columns = ("Дата", "Сумма", "Из", "В", "Результат", "Курс")
+        columns = ("Дата и время", "Сумма", "Из", "В", "Результат", "Курс")
         self.tree = ttk.Treeview(history_frame, columns=columns, show="headings", height=8)
         
-        column_widths = {"Дата": 120, "Сумма": 80, "Из": 60, "В": 60, "Результат": 100, "Курс": 100}
-        for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=column_widths.get(col, 100))
+        self.tree.heading("Дата и время", text="Дата и время")
+        self.tree.heading("Сумма", text="Сумма")
+        self.tree.heading("Из", text="Из")
+        self.tree.heading("В", text="В")
+        self.tree.heading("Результат", text="Результат")
+        self.tree.heading("Курс", text="Курс")
+        
+        self.tree.column("Дата и время", width=140)
+        self.tree.column("Сумма", width=80)
+        self.tree.column("Из", width=60)
+        self.tree.column("В", width=60)
+        self.tree.column("Результат", width=120)
+        self.tree.column("Курс", width=100)
         
         scrollbar = ttk.Scrollbar(history_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
@@ -100,119 +108,127 @@ class CurrencyConverter:
         self.tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
         
-        # Кнопки управления историей
+        # Кнопки управления
         btn_frame = ttk.Frame(history_frame)
-        btn_frame.grid(row=1, column=0, columnspan=2, pady=5)
+        btn_frame.grid(row=1, column=0, columnspan=2, pady=10)
         
-        ttk.Button(btn_frame, text="Очистить историю", command=self.clear_history).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="Экспорт в JSON", command=self.export_history).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="🗑 Очистить историю", command=self.clear_history).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="💾 Экспорт в JSON", command=self.export_history).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="🔄 Обновить курсы", command=self.refresh_currencies).pack(side=tk.LEFT, padx=5)
         
         # Настройка весов
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(0, weight=1)
-        main_frame.rowconfigure(3, weight=1)
+        main_frame.rowconfigure(4, weight=1)
         history_frame.columnconfigure(0, weight=1)
         history_frame.rowconfigure(0, weight=1)
     
     def load_currencies(self):
-        """Загрузка списка доступных валют из API"""
+        """Загрузка списка валют (без API-ключа)"""
         try:
-            # Попытка загрузить из кэша
+            # Пробуем загрузить из кэша
             if os.path.exists("currencies_cache.json"):
                 with open("currencies_cache.json", 'r', encoding='utf-8') as f:
                     cache = json.load(f)
-                    if datetime.now().timestamp() - cache['timestamp'] < 86400:  # 24 часа
+                    if datetime.now().timestamp() - cache['timestamp'] < 86400:
                         self.currencies = cache['currencies']
                         self.from_combo['values'] = self.currencies
                         self.to_combo['values'] = self.currencies
                         return
             
-            # Загрузка из API
-            response = requests.get(f"{self.api_url}USD", timeout=10)
+            # Загружаем список валют из Frankfurter API (без ключа!)
+            response = requests.get(f"{self.base_url}/currencies", timeout=10)
+            
             if response.status_code == 200:
                 data = response.json()
-                if data['result'] == 'success':
-                    self.currencies = list(data['conversion_rates'].keys())
-                    self.currencies.sort()
-                    self.from_combo['values'] = self.currencies
-                    self.to_combo['values'] = self.currencies
-                    
-                    # Сохранение в кэш
-                    cache_data = {
-                        'timestamp': datetime.now().timestamp(),
-                        'currencies': self.currencies
-                    }
-                    with open("currencies_cache.json", 'w', encoding='utf-8') as f:
-                        json.dump(cache_data, f, ensure_ascii=False, indent=2)
-                else:
-                    self.show_api_error()
+                self.currencies = list(data.keys())
+                self.currencies.sort()
+                self.from_combo['values'] = self.currencies
+                self.to_combo['values'] = self.currencies
+                
+                # Сохраняем кэш
+                cache_data = {
+                    'timestamp': datetime.now().timestamp(),
+                    'currencies': self.currencies
+                }
+                with open("currencies_cache.json", 'w', encoding='utf-8') as f:
+                    json.dump(cache_data, f)
+                
+                print(f"✅ Загружено {len(self.currencies)} валют без API-ключа")
             else:
-                self.show_api_error()
-        except requests.exceptions.RequestException:
-            self.show_api_error()
+                self.use_fallback_currencies()
+                
+        except Exception as e:
+            print(f"Ошибка: {e}")
+            self.use_fallback_currencies()
     
-    def show_api_error(self):
-        """Показать ошибку API и использовать резервные валюты"""
-        self.currencies = ["USD", "EUR", "GBP", "JPY", "CNY", "RUB", "CAD", "AUD", "CHF", "INR"]
+    def use_fallback_currencies(self):
+        """Резервный список валют"""
+        self.currencies = ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "CNY", "INR", "RUB"]
+        self.currencies.sort()
         self.from_combo['values'] = self.currencies
         self.to_combo['values'] = self.currencies
-        messagebox.showwarning("Предупреждение", 
-                              "Не удалось подключиться к API. Используются стандартные валюты.\n"
-                              "Проверьте API ключ или интернет-соединение.")
+        messagebox.showwarning("Внимание", "Используются стандартные валюты. Проверьте интернет.")
     
     def get_exchange_rate(self, from_curr, to_curr):
-        """Получение курса обмена из API"""
+        """Получение курса (без API-ключа)"""
+        if from_curr == to_curr:
+            return 1.0
+        
         try:
-            response = requests.get(f"{self.api_url}{from_curr}", timeout=10)
+            # Frankfurter API endpoint - бесплатно, без ключа!
+            url = f"{self.base_url}/latest?from={from_curr}&to={to_curr}"
+            response = requests.get(url, timeout=10)
+            
             if response.status_code == 200:
                 data = response.json()
-                if data['result'] == 'success':
-                    return data['conversion_rates'].get(to_curr)
+                rate = data['rates'].get(to_curr)
+                if rate:
+                    return rate
                 else:
-                    messagebox.showerror("Ошибка", "Ошибка API: " + data.get('error-type', 'Unknown error'))
+                    messagebox.showerror("Ошибка", f"Валюта {to_curr} не найдена")
                     return None
             else:
-                messagebox.showerror("Ошибка", f"Ошибка HTTP: {response.status_code}")
+                messagebox.showerror("Ошибка", f"HTTP ошибка: {response.status_code}")
                 return None
+                
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Ошибка", f"Ошибка сети: {str(e)}")
             return None
     
     def convert_currency(self):
-        """Выполнение конвертации валют"""
+        """Конвертация валюты"""
         try:
-            # Проверка суммы
-            amount_value = float(self.amount.get())
+            amount_value = float(self.amount.get().replace(',', '.'))
             if amount_value <= 0:
                 messagebox.showerror("Ошибка", "Сумма должна быть положительным числом")
                 return
         except ValueError:
-            messagebox.showerror("Ошибка", "Введите корректную сумму (число)")
+            messagebox.showerror("Ошибка", "Введите корректную сумму (например: 100.50)")
             return
         
         from_curr = self.from_currency.get()
         to_curr = self.to_currency.get()
         
-        if from_curr == to_curr:
-            result_value = float(self.amount.get())
-            rate = 1.0
-        else:
-            # Получение курса
-            rate = self.get_exchange_rate(from_curr, to_curr)
-            if rate is None:
-                return
-            result_value = float(self.amount.get()) * rate
+        self.result_label.config(text="Загрузка курса...")
+        self.root.update()
         
-        # Форматирование результата
-        result_text = f"{self.amount.get()} {from_curr} = {result_value:.4f} {to_curr}"
+        rate = self.get_exchange_rate(from_curr, to_curr)
+        if rate is None:
+            self.result_label.config(text="Ошибка получения курса")
+            return
+        
+        result_value = amount_value * rate
+        
+        result_text = f"{amount_value:,.2f} {from_curr} = {result_value:,.2f} {to_curr}"
         self.result_label.config(text=result_text)
         self.rate_label.config(text=f"Курс: 1 {from_curr} = {rate:.4f} {to_curr}")
         
-        # Сохранение в историю
+        # Сохраняем в историю
         history_entry = {
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "amount": float(self.amount.get()),
+            "amount": amount_value,
             "from_currency": from_curr,
             "to_currency": to_curr,
             "result": result_value,
@@ -220,59 +236,60 @@ class CurrencyConverter:
         }
         
         self.history.append(history_entry)
+        
+        if len(self.history) > 100:
+            self.history = self.history[-100:]
+        
         self.save_history()
         self.update_history_display()
     
     def swap_currencies(self):
-        """Перестановка валют местами"""
         from_val = self.from_currency.get()
         to_val = self.to_currency.get()
         self.from_currency.set(to_val)
         self.to_currency.set(from_val)
     
+    def refresh_currencies(self):
+        self.load_currencies()
+        messagebox.showinfo("Обновлено", "Список валют обновлен")
+    
     def load_history(self):
-        """Загрузка истории из JSON файла"""
         if os.path.exists(self.history_file):
             try:
                 with open(self.history_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except:
                 return []
         return []
     
     def save_history(self):
-        """Сохранение истории в JSON файл"""
         try:
             with open(self.history_file, 'w', encoding='utf-8') as f:
                 json.dump(self.history, f, ensure_ascii=False, indent=2)
-        except IOError as e:
-            messagebox.showerror("Ошибка", f"Не удалось сохранить историю: {e}")
+        except:
+            pass
     
     def update_history_display(self):
-        """Обновление отображения истории"""
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        for entry in reversed(self.history):
+        for entry in reversed(self.history[-50:]):
             self.tree.insert("", tk.END, values=(
                 entry["date"],
-                f"{entry['amount']:.4f}",
+                f"{entry['amount']:.2f}",
                 entry["from_currency"],
                 entry["to_currency"],
-                f"{entry['result']:.4f}",
+                f"{entry['result']:.2f}",
                 f"{entry['rate']:.4f}"
             ))
     
     def clear_history(self):
-        """Очистка истории"""
-        if messagebox.askyesno("Подтверждение", "Очистить всю историю конвертаций?"):
+        if messagebox.askyesno("Подтверждение", "Очистить историю?"):
             self.history = []
             self.save_history()
             self.update_history_display()
-            messagebox.showinfo("Успех", "История очищена")
     
     def export_history(self):
-        """Экспорт истории в отдельный JSON файл"""
         if not self.history:
             messagebox.showwarning("Предупреждение", "Нет истории для экспорта")
             return
@@ -281,9 +298,9 @@ class CurrencyConverter:
         try:
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(self.history, f, ensure_ascii=False, indent=2)
-            messagebox.showinfo("Успех", f"История экспортирована в {filename}")
-        except IOError as e:
-            messagebox.showerror("Ошибка", f"Не удалось экспортировать: {e}")
+            messagebox.showinfo("Успех", f"Экспортировано в {filename}")
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка экспорта: {e}")
 
 def main():
     root = tk.Tk()
